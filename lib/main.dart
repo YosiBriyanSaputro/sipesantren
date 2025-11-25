@@ -1,13 +1,23 @@
+import 'dart:async';
+// import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/auth/presentation/login_page.dart';
-import 'features/santri/presentation/santri_list_page.dart';
-import 'features/rapor/presentation/rapor_page.dart';
-import 'features/penilaian/presentation/input_penilaian_page.dart';
+// import 'features/santri/presentation/santri_list_page.dart';
+// import 'features/rapor/presentation/rapor_page.dart';
+// import 'features/penilaian/presentation/input_penilaian_page.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {

@@ -1,7 +1,9 @@
 // features/auth/presentation/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:sipesantren/features/santri/presentation/santri_list_page.dart';
+import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -14,7 +16,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedRole = 'Ustadz';
 
   @override
   Widget build(BuildContext context) {
@@ -80,33 +81,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      // Role Selection
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedRole,
-                          items: const [
-                            DropdownMenuItem(value: 'Admin', child: Text('Admin')),
-                            DropdownMenuItem(value: 'Ustadz', child: Text('Ustadz/Wali Kelas')),
-                            DropdownMenuItem(value: 'Wali Santri', child: Text('Wali Santri')),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedRole = value!;
-                            });
-                          },
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            labelText: 'Peran',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
                       // Email Field
                       TextFormField(
                         controller: _emailController,
@@ -169,6 +143,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: Center(
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const RegisterPage(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Belum punya akun? Daftar disini.',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
