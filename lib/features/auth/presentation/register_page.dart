@@ -19,6 +19,7 @@ class _LoginPageState extends ConsumerState<RegisterPage> {
   final _passwordController = TextEditingController();
   String _selectedRole = 'Ustadz';
   final FirebaseServices db = FirebaseServices();
+  bool loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +103,7 @@ class _LoginPageState extends ConsumerState<RegisterPage> {
                                 value: 'Ustadz',
                                 child: Text('Ustadz/Wali Kelas')),
                             DropdownMenuItem(
-                                value: 'Wali Santri',
+                                value: 'Wali',
                                 child: Text('Wali Santri')),
                           ],
                           onChanged: (value) {
@@ -175,20 +176,28 @@ class _LoginPageState extends ConsumerState<RegisterPage> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              db.createUser(
+                              setState(() {
+                                loading = true;
+                              });
+                              bool createUser = await db.createUser(
                                 _nameController.text,
                                 _emailController.text,
                                 _passwordController.text,
+                                _selectedRole
                               );
-
-                              // Navigator.pushReplacement(
-                              //   context,
-                              //   MaterialPageRoute(
-                              //     builder: (context) => const LoginPage(),
-                              //   ),
-                              // );
+                              setState(() {
+                                loading = false;
+                                if (createUser) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const LoginPage(fromSuccessRegistration: true),
+                                    ),
+                                  );
+                                }
+                              });
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -197,7 +206,7 @@ class _LoginPageState extends ConsumerState<RegisterPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const Text(
+                          child: loading ? const CircularProgressIndicator() : const Text(
                             'DAFTAR',
                             style: TextStyle(
                               color: Colors.white,

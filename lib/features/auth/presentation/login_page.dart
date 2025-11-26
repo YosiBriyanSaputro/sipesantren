@@ -6,7 +6,9 @@ import 'package:sipesantren/features/santri/presentation/santri_list_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.fromSuccessRegistration = false});
+
+  final bool fromSuccessRegistration;
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -39,7 +41,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(40),
                       ),
-                      child: const Icon(Icons.mosque, size: 40, color: Colors.blue),
+                      child: const Icon(Icons.mosque,
+                          size: 40, color: Colors.blue),
                     ),
                     const SizedBox(height: 20),
                     const Text(
