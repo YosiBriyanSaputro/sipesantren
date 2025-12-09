@@ -1,8 +1,12 @@
-// features/penilaian/presentation/input_penilaian_page.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:sipesantren/core/models/penilaian_model.dart';
+import 'package:sipesantren/core/models/santri_model.dart';
+import 'package:sipesantren/core/repositories/penilaian_repository.dart';
 
 class InputPenilaianPage extends StatefulWidget {
-  const InputPenilaianPage({super.key});
+  final SantriModel? santri; // Optional for standalone, but usually required
+  const InputPenilaianPage({super.key, this.santri});
 
   @override
   State<InputPenilaianPage> createState() => _InputPenilaianPageState();
@@ -11,12 +15,41 @@ class InputPenilaianPage extends StatefulWidget {
 class _InputPenilaianPageState extends State<InputPenilaianPage> {
   int _selectedIndex = 0;
   final List<String> _jenisPenilaian = ['Tahfidz', 'Fiqh', 'Bahasa Arab', 'Akhlak', 'Kehadiran'];
+  final PenilaianRepository _repository = PenilaianRepository();
+
+  // Controllers - Tahfidz
+  final _tahfidzSurahController = TextEditingController();
+  final _tahfidzAyatSetorController = TextEditingController();
+  final _tahfidzTargetAyatController = TextEditingController(text: "50"); // Default target
+  final _tahfidzTajwidController = TextEditingController();
+
+  // Controllers - Mapel
+  final _mapelFormatifController = TextEditingController();
+  final _mapelSumatifController = TextEditingController();
+
+  // State - Akhlak
+  int _akhlakDisiplin = 3;
+  int _akhlakAdab = 3;
+  int _akhlakKebersihan = 3;
+  int _akhlakKerjasama = 3;
+  final _akhlakCatatanController = TextEditingController();
+
+  // State - Kehadiran
+  DateTime _kehadiranTanggal = DateTime.now();
+  String _kehadiranStatus = 'H';
 
   @override
   Widget build(BuildContext context) {
+    if (widget.santri == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: const Center(child: Text('Data Santri tidak ditemukan')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Input Penilaian'),
+        title: Text('Input Penilaian: ${widget.santri!.nama}'),
       ),
       body: Column(
         children: [
@@ -31,6 +64,7 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
                   onTap: () {
                     setState(() {
                       _selectedIndex = index;
+                      // Reset controllers/state if needed when switching tabs
                     });
                   },
                   child: Container(
@@ -57,7 +91,9 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: _buildFormByType(),
+              child: SingleChildScrollView(
+                child: _buildFormByType(),
+              ),
             ),
           ),
         ],
@@ -92,6 +128,7 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 16),
         TextField(
+          controller: _tahfidzSurahController,
           decoration: const InputDecoration(
             labelText: 'Surah',
             border: OutlineInputBorder(),
@@ -99,6 +136,7 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 12),
         TextField(
+          controller: _tahfidzTargetAyatController,
           decoration: const InputDecoration(
             labelText: 'Target Ayat (Mingguan)',
             border: OutlineInputBorder(),
@@ -107,6 +145,7 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 12),
         TextField(
+          controller: _tahfidzAyatSetorController,
           decoration: const InputDecoration(
             labelText: 'Ayat Setoran',
             border: OutlineInputBorder(),
@@ -115,21 +154,37 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 12),
         TextField(
+          controller: _tahfidzTajwidController,
           decoration: const InputDecoration(
             labelText: 'Nilai Tajwid (0-100)',
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.number,
         ),
-        const Spacer(),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Data Tahfidz berhasil disimpan')),
-              );
+            onPressed: () async {
+              try {
+                final data = PenilaianTahfidz(
+                  id: '',
+                  santriId: widget.santri!.id,
+                  minggu: DateTime.now(),
+                  surah: _tahfidzSurahController.text,
+                  ayatSetor: int.tryParse(_tahfidzAyatSetorController.text) ?? 0,
+                  targetAyat: int.tryParse(_tahfidzTargetAyatController.text) ?? 50,
+                  tajwid: int.tryParse(_tahfidzTajwidController.text) ?? 0,
+                );
+                await _repository.addPenilaianTahfidz(data);
+                _showSuccess('Data Tahfidz berhasil disimpan');
+                _tahfidzSurahController.clear();
+                _tahfidzAyatSetorController.clear();
+                _tahfidzTajwidController.clear();
+              } catch (e) {
+                _showError('Gagal menyimpan: $e');
+              }
             },
             child: const Text('SIMPAN NILAI TAHFIDZ'),
           ),
@@ -148,6 +203,7 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 16),
         TextField(
+          controller: _mapelFormatifController,
           decoration: const InputDecoration(
             labelText: 'Nilai Formatif (0-100)',
             border: OutlineInputBorder(),
@@ -156,21 +212,34 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         ),
         const SizedBox(height: 12),
         TextField(
+          controller: _mapelSumatifController,
           decoration: const InputDecoration(
             labelText: 'Nilai Sumatif (0-100)',
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.number,
         ),
-        const Spacer(),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Data $mapel berhasil disimpan')),
-              );
+            onPressed: () async {
+              try {
+                final data = PenilaianMapel(
+                  id: '',
+                  santriId: widget.santri!.id,
+                  mapel: mapel,
+                  formatif: int.tryParse(_mapelFormatifController.text) ?? 0,
+                  sumatif: int.tryParse(_mapelSumatifController.text) ?? 0,
+                );
+                await _repository.addPenilaianMapel(data);
+                _showSuccess('Data $mapel berhasil disimpan');
+                _mapelFormatifController.clear();
+                _mapelSumatifController.clear();
+              } catch (e) {
+                _showError('Gagal menyimpan: $e');
+              }
             },
             child: Text('SIMPAN NILAI $mapel'),
           ),
@@ -180,11 +249,6 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
   }
 
   Widget _buildAkhlakForm() {
-    int disiplin = 3;
-    int adab = 3;
-    int kebersihan = 3;
-    int kerjasama = 3;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -193,27 +257,57 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        _buildAkhlakSlider('Disiplin', disiplin, (value) {}),
-        _buildAkhlakSlider('Adab pada Guru', adab, (value) {}),
-        _buildAkhlakSlider('Kebersihan', kebersihan, (value) {}),
-        _buildAkhlakSlider('Kerja Sama', kerjasama, (value) {}),
+        _buildAkhlakSlider('Disiplin', _akhlakDisiplin, (value) {
+          setState(() {
+            _akhlakDisiplin = value.toInt();
+          });
+        }),
+        _buildAkhlakSlider('Adab pada Guru', _akhlakAdab, (value) {
+          setState(() {
+            _akhlakAdab = value.toInt();
+          });
+        }),
+        _buildAkhlakSlider('Kebersihan', _akhlakKebersihan, (value) {
+          setState(() {
+            _akhlakKebersihan = value.toInt();
+          });
+        }),
+        _buildAkhlakSlider('Kerja Sama', _akhlakKerjasama, (value) {
+          setState(() {
+            _akhlakKerjasama = value.toInt();
+          });
+        }),
         const SizedBox(height: 16),
         TextField(
+          controller: _akhlakCatatanController,
           decoration: const InputDecoration(
             labelText: 'Catatan',
             border: OutlineInputBorder(),
           ),
           maxLines: 3,
         ),
-        const Spacer(),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Data Akhlak berhasil disimpan')),
-              );
+            onPressed: () async {
+              try {
+                final data = PenilaianAkhlak(
+                  id: '',
+                  santriId: widget.santri!.id,
+                  disiplin: _akhlakDisiplin,
+                  adab: _akhlakAdab,
+                  kebersihan: _akhlakKebersihan,
+                  kerjasama: _akhlakKerjasama,
+                  catatan: _akhlakCatatanController.text,
+                );
+                await _repository.addPenilaianAkhlak(data);
+                _showSuccess('Data Akhlak berhasil disimpan');
+                _akhlakCatatanController.clear();
+              } catch (e) {
+                _showError('Gagal menyimpan: $e');
+              }
             },
             child: const Text('SIMPAN NILAI AKHLAK'),
           ),
@@ -235,9 +329,9 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
           label: _getAkhlakLabel(value),
           onChanged: onChanged,
         ),
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
+          children: [
             Text('Kurang (1)'),
             Text('Cukup (2)'),
             Text('Baik (3)'),
@@ -260,8 +354,6 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
   }
 
   Widget _buildKehadiranForm() {
-    String selectedStatus = 'H';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,49 +362,75 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        TextField(
-          decoration: const InputDecoration(
-            labelText: 'Tanggal',
-            border: OutlineInputBorder(),
-            suffixIcon: Icon(Icons.calendar_today),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _kehadiranTanggal,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2101),
+            );
+            if (picked != null) {
+              setState(() {
+                _kehadiranTanggal = picked;
+              });
+            }
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'Tanggal',
+              border: OutlineInputBorder(),
+              suffixIcon: Icon(Icons.calendar_today),
+            ),
+            child: Text(DateFormat('yyyy-MM-dd').format(_kehadiranTanggal)),
           ),
         ),
         const SizedBox(height: 16),
         const Text('Status Kehadiran:'),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           children: [
-            _buildStatusChip('H', 'Hadir', selectedStatus == 'H', () {
+            _buildStatusChip('H', 'Hadir', _kehadiranStatus == 'H', () {
               setState(() {
-                selectedStatus = 'H';
+                _kehadiranStatus = 'H';
               });
             }),
-            _buildStatusChip('S', 'Sakit', selectedStatus == 'S', () {
+            _buildStatusChip('S', 'Sakit', _kehadiranStatus == 'S', () {
               setState(() {
-                selectedStatus = 'S';
+                _kehadiranStatus = 'S';
               });
             }),
-            _buildStatusChip('I', 'Izin', selectedStatus == 'I', () {
+            _buildStatusChip('I', 'Izin', _kehadiranStatus == 'I', () {
               setState(() {
-                selectedStatus = 'I';
+                _kehadiranStatus = 'I';
               });
             }),
-            _buildStatusChip('A', 'Alpa', selectedStatus == 'A', () {
+            _buildStatusChip('A', 'Alpa', _kehadiranStatus == 'A', () {
               setState(() {
-                selectedStatus = 'A';
+                _kehadiranStatus = 'A';
               });
             }),
           ],
         ),
-        const Spacer(),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Data Kehadiran berhasil disimpan')),
-              );
+            onPressed: () async {
+              try {
+                final data = Kehadiran(
+                  id: '',
+                  santriId: widget.santri!.id,
+                  tanggal: _kehadiranTanggal,
+                  status: _kehadiranStatus,
+                );
+                await _repository.addKehadiran(data);
+                _showSuccess('Data Kehadiran berhasil disimpan');
+              } catch (e) {
+                _showError('Gagal menyimpan: $e');
+              }
             },
             child: const Text('SIMPAN KEHADIRAN'),
           ),
@@ -332,5 +450,19 @@ class _InputPenilaianPageState extends State<InputPenilaianPage> {
         color: selected ? Colors.white : Colors.black,
       ),
     );
+  }
+
+  void _showSuccess(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
   }
 }

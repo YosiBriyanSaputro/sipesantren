@@ -132,10 +132,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               setState(() {
                                 loading = true;
                               });
-                              bool userExists = await db.getUser(_emailController.text, _passwordController.text);
-                              setState(() {
-                                loading = false;
-                                if (userExists) {
+                              
+                              final user = await db.login(_emailController.text, _passwordController.text);
+                              
+                              if (user != null) {
+                                // Save session
+                                await db.saveUserSession(
+                                  user['id'], 
+                                  user['role'] ?? 'Ustadz', 
+                                  user['name'] ?? 'User'
+                                );
+                                
+                                if (mounted) {
+                                  setState(() {
+                                    loading = false;
+                                  });
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
@@ -143,7 +154,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ),
                                   );
                                 }
-                              });
+                              } else {
+                                if (mounted) {
+                                  setState(() {
+                                    loading = false;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Login gagal. Periksa email dan password.')),
+                                  );
+                                }
+                              }
                             }
                           },
                           style: ElevatedButton.styleFrom(

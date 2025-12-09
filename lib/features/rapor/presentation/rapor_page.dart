@@ -1,11 +1,89 @@
-// features/rapor/presentation/rapor_page.dart
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:sipesantren/core/models/penilaian_model.dart';
+import 'package:sipesantren/core/models/santri_model.dart';
+import 'package:sipesantren/core/repositories/penilaian_repository.dart';
+import 'package:sipesantren/core/services/grading_service.dart';
 
-class RaporPage extends StatelessWidget {
-  const RaporPage({super.key});
+class RaporPage extends StatefulWidget {
+  final SantriModel? santri;
+  const RaporPage({super.key, this.santri});
+
+  @override
+  State<RaporPage> createState() => _RaporPageState();
+}
+
+class _RaporPageState extends State<RaporPage> {
+  final PenilaianRepository _repository = PenilaianRepository();
+  final GradingService _gradingService = GradingService();
+
+  Map<String, double> _scores = {};
+  Map<String, dynamic> _finalGrade = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.santri != null) {
+      _loadData();
+    }
+  }
+
+  Future<void> _loadData() async {
+    final santriId = widget.santri!.id;
+    
+    // Fetch all data
+    final tahfidzList = await _repository.getTahfidzBySantri(santriId).first;
+    final mapelList = await _repository.getMapelBySantri(santriId).first;
+    final akhlakList = await _repository.getAkhlakBySantri(santriId).first;
+    final kehadiranList = await _repository.getKehadiranBySantri(santriId).first;
+
+    // Calculate
+    final tahfidzScore = _gradingService.calculateTahfidz(tahfidzList);
+    final fiqhScore = _gradingService.calculateMapel(mapelList, 'Fiqh');
+    final bahasaArabScore = _gradingService.calculateMapel(mapelList, 'Bahasa Arab');
+    final akhlakScore = _gradingService.calculateAkhlak(akhlakList);
+    final kehadiranScore = _gradingService.calculateKehadiran(kehadiranList);
+
+    final finalResult = _gradingService.calculateFinalGrade(
+      tahfidz: tahfidzScore,
+      fiqh: fiqhScore,
+      bahasaArab: bahasaArabScore,
+      akhlak: akhlakScore,
+      kehadiran: kehadiranScore,
+    );
+
+    setState(() {
+      _scores = {
+        'Tahfidz': tahfidzScore,
+        'Fiqh': fiqhScore,
+        'Bahasa Arab': bahasaArabScore,
+        'Akhlak': akhlakScore,
+        'Kehadiran': kehadiranScore,
+      };
+      _finalGrade = finalResult;
+      _loading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.santri == null) {
+       return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: const Center(child: Text('Data Santri tidak ditemukan')),
+      );
+    }
+
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Rapor Santri')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rapor Santri'),
@@ -13,13 +91,7 @@ class RaporPage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             onPressed: () {
-              _showExportDialog(context);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              _showShareDialog(context);
+              _generateAndPrintPdf();
             },
           ),
         ],
@@ -43,11 +115,10 @@ class RaporPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildInfoRow('Nama Santri', 'Ahmad Fauzi'),
-                    _buildInfoRow('NIS', '2025-001'),
-                    _buildInfoRow('Kamar', 'A3'),
-                    _buildInfoRow('Angkatan', '2023'),
-                    _buildInfoRow('Periode', 'Semester 1 2024'),
+                    _buildInfoRow('Nama Santri', widget.santri!.nama),
+                    _buildInfoRow('NIS', widget.santri!.nis),
+                    _buildInfoRow('Kamar', widget.santri!.kamar),
+                    _buildInfoRow('Angkatan', widget.santri!.angkatan.toString()),
                   ],
                 ),
               ),
@@ -71,9 +142,8 @@ class RaporPage extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildNilaiCircle('89', 'A', Colors.green),
-                        _buildNilaiItem('Peringkat', '5 dari 40'),
-                        _buildNilaiItem('Status', 'Lulus'),
+                        _buildNilaiCircle('${_finalGrade['score']}', '${_finalGrade['predikat']}', _getColorForPredikat(_finalGrade['predikat'])),
+                        _buildNilaiItem('Status', _finalGrade['predikat'] != 'D' ? 'Lulus' : 'Remidial'),
                       ],
                     ),
                   ],
@@ -97,49 +167,13 @@ class RaporPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildNilaiDetailRow('Tahfidz (30%)', '93'),
-                    _buildNilaiDetailRow('Fiqh (20%)', '86'),
-                    _buildNilaiDetailRow('Bahasa Arab (20%)', '78'),
-                    _buildNilaiDetailRow('Akhlak (20%)', '94'),
-                    _buildNilaiDetailRow('Kehadiran (10%)', '90'),
+                    _buildNilaiDetailRow('Tahfidz (30%)', '${_scores['Tahfidz']}'),
+                    _buildNilaiDetailRow('Fiqh (20%)', '${_scores['Fiqh']}'),
+                    _buildNilaiDetailRow('Bahasa Arab (20%)', '${_scores['Bahasa Arab']}'),
+                    _buildNilaiDetailRow('Akhlak (20%)', '${_scores['Akhlak']}'),
+                    _buildNilaiDetailRow('Kehadiran (10%)', '${_scores['Kehadiran']}'),
                     const Divider(),
-                    _buildNilaiDetailRow('NILAI AKHIR', '89', isBold: true),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Catatan Ustadz
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'CATATAN USTADZ',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Ahmad menunjukkan perkembangan yang baik dalam hafalan Tahfidz. '
-                      'Perlu meningkatkan konsistensi dalam pelajaran Bahasa Arab. '
-                      'Akhlak dan adab sudah sangat baik, pertahankan!',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Ustadz Muhammad, 15 Desember 2024',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
-                      ),
-                    ),
+                    _buildNilaiDetailRow('NILAI AKHIR', '${_finalGrade['score']}', isBold: true),
                   ],
                 ),
               ),
@@ -148,6 +182,15 @@ class RaporPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _getColorForPredikat(String predikat) {
+    switch (predikat) {
+      case 'A': return Colors.green;
+      case 'B': return Colors.blue;
+      case 'C': return Colors.orange;
+      default: return Colors.red;
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -242,71 +285,51 @@ class RaporPage extends StatelessWidget {
     );
   }
 
-  void _showExportDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Ekspor Rapor'),
-        content: const Text('Pilih format ekspor:'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('BATAL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rapor berhasil diekspor ke PDF')),
-              );
-            },
-            child: const Text('PDF'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rapor berhasil diekspor ke HTML')),
-              );
-            },
-            child: const Text('HTML'),
-          ),
-        ],
+  Future<void> _generateAndPrintPdf() async {
+    final doc = pw.Document();
+    
+    doc.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Header(
+                level: 0,
+                child: pw.Text('Laporan Hasil Belajar Santri', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text('Nama: ${widget.santri!.nama}'),
+              pw.Text('NIS: ${widget.santri!.nis}'),
+              pw.Text('Kamar: ${widget.santri!.kamar}'),
+              pw.SizedBox(height: 30),
+              
+              pw.Table.fromTextArray(context: context, data: <List<String>>[
+                <String>['Mata Pelajaran', 'Nilai', 'Bobot'],
+                <String>['Tahfidz', '${_scores['Tahfidz']}', '30%'],
+                <String>['Fiqh', '${_scores['Fiqh']}', '20%'],
+                <String>['Bahasa Arab', '${_scores['Bahasa Arab']}', '20%'],
+                <String>['Akhlak', '${_scores['Akhlak']}', '20%'],
+                <String>['Kehadiran', '${_scores['Kehadiran']}', '10%'],
+              ]),
+              
+              pw.Divider(),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                   pw.Text('Nilai Akhir: ${_finalGrade['score']} (Predikat: ${_finalGrade['predikat']})', 
+                     style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                ]
+              ),
+            ],
+          );
+        },
       ),
     );
-  }
 
-  void _showShareDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bagikan Rapor'),
-        content: const Text('Bagikan rapor kepada wali santri:'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('BATAL'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rapor berhasil dibagikan')),
-              );
-            },
-            child: const Text('WHATSAPP'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rapor berhasil dibagikan')),
-              );
-            },
-            child: const Text('EMAIL'),
-          ),
-        ],
-      ),
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => doc.save(),
     );
   }
 }

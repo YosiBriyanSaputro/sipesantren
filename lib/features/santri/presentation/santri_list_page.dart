@@ -1,26 +1,10 @@
 // features/santri/presentation/santri_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sipesantren/core/models/santri_model.dart';
+import 'package:sipesantren/core/repositories/santri_repository.dart';
 import 'package:sipesantren/features/penilaian/presentation/input_penilaian_page.dart';
 import 'package:sipesantren/features/rapor/presentation/rapor_page.dart';
-
-class Santri {
-  final String id;
-  final String nis;
-  final String nama;
-  final String kamar;
-  final int angkatan;
-  final String statusSinkron;
-
-  Santri({
-    required this.id,
-    required this.nis,
-    required this.nama,
-    required this.kamar,
-    required this.angkatan,
-    required this.statusSinkron,
-  });
-}
 
 class SantriListPage extends ConsumerStatefulWidget {
   const SantriListPage({super.key});
@@ -30,16 +14,11 @@ class SantriListPage extends ConsumerStatefulWidget {
 }
 
 class _SantriListPageState extends ConsumerState<SantriListPage> {
-  final List<Santri> _santriList = [
-    Santri(id: 's1', nis: '2025-001', nama: 'Ahmad Fauzi', kamar: 'A3', angkatan: 2023, statusSinkron: 'Tersinkron'),
-    Santri(id: 's2', nis: '2025-002', nama: 'Bilal Syahid', kamar: 'B1', angkatan: 2022, statusSinkron: 'Belum Sinkron'),
-    Santri(id: 's3', nis: '2025-003', nama: 'Chandra Wijaya', kamar: 'A3', angkatan: 2023, statusSinkron: 'Tersinkron'),
-    Santri(id: 's4', nis: '2025-004', nama: 'Daffa Rahman', kamar: 'C2', angkatan: 2022, statusSinkron: 'Tersinkron'),
-  ];
-
+  final SantriRepository _repository = SantriRepository();
   String _selectedKamar = 'Semua';
   String _selectedAngkatan = 'Semua';
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +61,9 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
                     ),
                   ),
                   onChanged: (value) {
-                    setState(() {});
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
                   },
                 ),
                 const SizedBox(height: 12),
@@ -152,62 +133,66 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
 
           // Santri List
           Expanded(
-            child: ListView.builder(
-              itemCount: _santriList.length,
-              itemBuilder: (context, index) {
-                final santri = _santriList[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: ListTile(
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(Icons.person, color: Colors.blue),
-                    ),
-                    title: Text(santri.nama),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('NIS: ${santri.nis} | Kamar: ${santri.kamar}'),
-                        Row(
+            child: StreamBuilder<List<SantriModel>>(
+              stream: _repository.getSantriList(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final allSantri = snapshot.data!;
+                final filteredSantri = allSantri.where((santri) {
+                  final matchesSearch = santri.nama.toLowerCase().contains(_searchQuery) || 
+                                      santri.nis.contains(_searchQuery);
+                  final matchesKamar = _selectedKamar == 'Semua' || santri.kamar == _selectedKamar;
+                  final matchesAngkatan = _selectedAngkatan == 'Semua' || santri.angkatan.toString() == _selectedAngkatan;
+                  return matchesSearch && matchesKamar && matchesAngkatan;
+                }).toList();
+
+                if (filteredSantri.isEmpty) {
+                  return const Center(child: Text('Data tidak ditemukan'));
+                }
+
+                return ListView.builder(
+                  itemCount: filteredSantri.length,
+                  itemBuilder: (context, index) {
+                    final santri = filteredSantri[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.person, color: Colors.blue),
+                        ),
+                        title: Text(santri.nama),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              santri.statusSinkron == 'Tersinkron'
-                                ? Icons.cloud_done
-                                : Icons.cloud_off,
-                              size: 14,
-                              color: santri.statusSinkron == 'Tersinkron'
-                                ? Colors.green
-                                : Colors.orange,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              santri.statusSinkron,
-                              style: TextStyle(
-                                color: santri.statusSinkron == 'Tersinkron'
-                                  ? Colors.green
-                                  : Colors.orange,
-                                fontSize: 12,
-                              ),
-                            ),
+                            Text('NIS: ${santri.nis} | Kamar: ${santri.kamar}'),
+                            // Status sinkron omitted for now as Firestore handles it automatically
+                            // Or we could check metadata.hasPendingWrites if needed
                           ],
                         ),
-                      ],
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SantriDetailPage(santri: santri),
-                        ),
-                      );
-                    },
-                  ),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SantriDetailPage(santri: santri),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -218,24 +203,16 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
   }
 
   void _showSyncDialog() {
+    // Firestore syncs automatically. This could be a "Force Sync" or status check.
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Sinkronisasi Data'),
-        content: const Text('Data akan disinkronkan dengan server. Pastikan koneksi internet tersedia.'),
+        content: const Text('Data disinkronkan secara otomatis saat online.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('BATAL'),
-          ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sinkronisasi berhasil!')),
-              );
-            },
-            child: const Text('SINKRON'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -243,18 +220,25 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
   }
 
   void _showAddSantriDialog() {
+    final nisController = TextEditingController();
+    final namaController = TextEditingController();
+    final kamarController = TextEditingController();
+    final angkatanController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Tambah Santri Baru'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(decoration: const InputDecoration(labelText: 'NIS')),
-            TextField(decoration: const InputDecoration(labelText: 'Nama')),
-            TextField(decoration: const InputDecoration(labelText: 'Kamar')),
-            TextField(decoration: const InputDecoration(labelText: 'Angkatan')),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nisController, decoration: const InputDecoration(labelText: 'NIS')),
+              TextField(controller: namaController, decoration: const InputDecoration(labelText: 'Nama')),
+              TextField(controller: kamarController, decoration: const InputDecoration(labelText: 'Kamar')),
+              TextField(controller: angkatanController, decoration: const InputDecoration(labelText: 'Angkatan (Tahun)')),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -262,11 +246,21 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
             child: const Text('BATAL'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Santri berhasil ditambahkan')),
+            onPressed: () async {
+              final santri = SantriModel(
+                id: '', // Firestore auto-id
+                nis: nisController.text,
+                nama: namaController.text,
+                kamar: kamarController.text,
+                angkatan: int.tryParse(angkatanController.text) ?? DateTime.now().year,
               );
+              await _repository.addSantri(santri);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Santri berhasil ditambahkan')),
+                );
+              }
             },
             child: const Text('SIMPAN'),
           ),
@@ -277,7 +271,7 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
 }
 
 class SantriDetailPage extends StatelessWidget {
-  final Santri santri;
+  final SantriModel santri;
 
   const SantriDetailPage({super.key, required this.santri});
 
@@ -304,6 +298,7 @@ class SantriDetailPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // TODO: Fetch real grades
                   _buildNilaiCard('Tahfidz', '93', Colors.green, Icons.book),
                   _buildNilaiCard('Fiqh', '86', Colors.blue, Icons.balance),
                   _buildNilaiCard('Bahasa Arab', '78', Colors.orange, Icons.language),
@@ -315,7 +310,7 @@ class SantriDetailPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const InputPenilaianPage(),
+                          builder: (context) => InputPenilaianPage(santri: santri),
                         ),
                       );
                     },
@@ -356,7 +351,7 @@ class SantriDetailPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const RaporPage(),
+                                  builder: (context) => RaporPage(santri: santri),
                                 ),
                               );
                             },
