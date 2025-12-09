@@ -100,6 +100,7 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
                             value: _selectedKamar,
                             items: const [
                               DropdownMenuItem(value: 'Semua', child: Text('Semua Kamar')),
@@ -127,6 +128,7 @@ class _SantriListPageState extends ConsumerState<SantriListPage> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
                             value: _selectedAngkatan,
                             items: const [
                               DropdownMenuItem(value: 'Semua', child: Text('Semua Angkatan')),
