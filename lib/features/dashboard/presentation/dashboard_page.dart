@@ -4,6 +4,7 @@ import 'package:sipesantren/core/providers/user_provider.dart';
 import 'package:sipesantren/features/admin/presentation/weight_config_page.dart';
 import 'package:sipesantren/features/admin/presentation/user_management_page.dart'; // New import // Import userProvider
 import 'package:sipesantren/features/auth/presentation/login_page.dart';
+import 'package:sipesantren/features/santri/presentation/santri_list_page.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -64,8 +65,8 @@ class DashboardPage extends ConsumerWidget {
                 title: 'Kelola Santri',
                 subtitle: 'Lihat dan kelola informasi santri.',
                 onTap: () {
-                  // TODO: Implement navigation to SantriListPage
-                },
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const SantriListPage()));                },
               ),
               const SizedBox(height: 10),
               DashboardActionCard(
